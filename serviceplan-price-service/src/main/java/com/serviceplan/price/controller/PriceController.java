@@ -38,9 +38,10 @@ public class PriceController {
 	private static final String UPDATE_OPERATION_NOT_ALLOWD_MSG = "Update operation not allowed on past price with ID = %s";
 	private static final String NO_PRICE_INFO_FOUND_MSG = "No price information was found with Id = %s";
 	private static final String PRICE_ALREADY_EXISTS_MSG = "Price already exists for same country, plan and effective date (ID = %s). Use PUT for price update.";
-	private static final String ACTIVE_SHOULD_BE_TRUE_MSG = "Active field should be false";
+	private static final String ACTIVE_SHOULD_BE_TRUE_MSG = "Active field should be true";
 	private static final String EFFECTIVE_FROM_IS_IN_PAST_MSG = "effectiveFrom field can't be in past";
 	private static final String PRICE_ID_DOES_MATCH_COUNTRY_SERVICE_PLAN_AND_EFFECTIVE_FROM_MSG = "Specified priceId doesn't correspond to specified CountryId, servicePlanId, effectiveDate";
+	private static final String INVALID_SERVICE_PLAN_ID_MSG = "servicePlanId is not in allowed range (1-3)";
 
 	Logger logger = LoggerFactory.getLogger(PriceController.class);
 
@@ -75,7 +76,7 @@ public class PriceController {
 	@GetMapping(value = "/countries/{countryId}/plans/{planId}")
 	@ApiOperation(value = "Get all prices by countryId, planId and active(optional)")
 	public ResponseEntity<List<PriceByPlanCountry>> getPriceByCountryAndPlan(@PathVariable("countryId") int countryId,
-			@PathVariable("planId") int planId, @RequestParam(value = "true/false", required = false) String active) {
+			@PathVariable("planId") int planId, @RequestParam(required = false, name = "active") String active) {
 		List<PriceByPlanCountry> priceList = null;
 
 		// if query parameter 'active' is specified, filter by active field
@@ -99,7 +100,7 @@ public class PriceController {
 	@GetMapping(value = "/countries/{countryId}")
 	@ApiOperation(value = "Get prices for all the plans by countryId and active status(optional)")
 	public ResponseEntity<List<PriceByPlanCountry>> getPriceByCountry(@PathVariable("countryId") int countryId,
-			@RequestParam(value = "true/false", required = false) String active) {
+			@RequestParam(required = false, name = "active") String active) {
 		List<PriceByPlanCountry> priceList = null;
 
 		// if query parameter 'active' is specified
@@ -155,28 +156,29 @@ public class PriceController {
 		// urls to access inserted prices
 		StringBuffer links = new StringBuffer();
 		int numInsertedPrice = 0;
-		List<PriceStatus> errorMessageList = new ArrayList<>();
+		List<PriceStatus> errorStatusList = new ArrayList<>();
 
 		for (PriceByPlanCountry price : priceList) {
+			String errorMsg = null;
 			// Insert not allowed for past date or with active=false status
 			if (price.getEffectiveFrom().before(new Date())) {
-				PriceStatus priceStatus = getPriceStatus(String.format(EFFECTIVE_FROM_IS_IN_PAST_MSG), price);
-				errorMessageList.add(priceStatus);
-				continue;
+				errorMsg = String.format(EFFECTIVE_FROM_IS_IN_PAST_MSG);
 			}
 
 			// insert not allowed for active=false status
 			if (!price.getActive()) {
-				PriceStatus priceStatus = getPriceStatus(String.format(ACTIVE_SHOULD_BE_TRUE_MSG), price);
-				errorMessageList.add(priceStatus);
-				continue;
+				errorMsg = String.format(ACTIVE_SHOULD_BE_TRUE_MSG);
 			}
 
 			// insert not allowed for servicePlanId outside 1-3
 			int planId = price.getServicePlanId();
 			if (planId < 1 || planId > 3) {
-				PriceStatus priceStatus = getPriceStatus(String.format(ACTIVE_SHOULD_BE_TRUE_MSG), price);
-				errorMessageList.add(priceStatus);
+				errorMsg = String.format(INVALID_SERVICE_PLAN_ID_MSG);
+			}
+
+			if (errorMsg != null) {
+				PriceStatus priceStatus = getPriceStatus(errorMsg, price);
+				errorStatusList.add(priceStatus);
 				continue;
 			}
 
@@ -194,7 +196,7 @@ public class PriceController {
 			} else {
 				PriceStatus priceStatus = getPriceStatus(
 						String.format(PRICE_ALREADY_EXISTS_MSG, resultPrice.getPriceId()), price);
-				errorMessageList.add(priceStatus);
+				errorStatusList.add(priceStatus);
 			}
 		}
 
@@ -203,8 +205,8 @@ public class PriceController {
 			response.setHeader("Location", links.toString());
 		}
 
-		if (errorMessageList.size() > 0)
-			return new ResponseEntity<List<PriceStatus>>(errorMessageList, HttpStatus.MULTI_STATUS);
+		if (errorStatusList.size() > 0)
+			return new ResponseEntity<List<PriceStatus>>(errorStatusList, HttpStatus.MULTI_STATUS);
 
 		return new ResponseEntity<List<PriceStatus>>(HttpStatus.OK);
 
@@ -290,7 +292,7 @@ public class PriceController {
 	 * @return
 	 */
 	@PutMapping(value = "/{priceId}")
-	@ApiOperation(value = "Update price information for given priceId using provided data (only price field is updated)")
+	@ApiOperation(value = "Update price information for given priceId using provided data (only price field is used and updated)")
 	public ResponseEntity<String> updatePriceByPriceId(@PathVariable("priceId") long priceId,
 			@RequestBody PriceByPlanCountry newPriceInfo, HttpServletRequest request, HttpServletResponse response) {
 
