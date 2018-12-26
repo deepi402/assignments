@@ -1,0 +1,11 @@
+subscriptionId,customerId,
+	long subscriptionId;
+	
+	int customerId;			// customerId in CustomerAccount table
+    int service_plan_id; 	// service plan subscribed by customer
+	double planPrice;		// current price for subscribed plan
+	Date updatePriceTime;	// the time price was updated for the account
+    Date planStart;  		// date on which customer started this plan
+    Date planEnd; 			// date on which customer ended this plan
+    boolean isActive;		// if this is the active plan
+    int countryId;			// Country where customer lives (based on his current address)
