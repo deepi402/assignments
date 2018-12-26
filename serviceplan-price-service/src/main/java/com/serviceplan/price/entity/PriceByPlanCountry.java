@@ -30,7 +30,7 @@ public class PriceByPlanCountry {
 	@ApiModelProperty(notes = "Date when this record was last updated")
 	Date lastUpdated;
 
-	@ApiModelProperty(notes = "price for countryId, servicePlanId combination")
+	@ApiModelProperty(notes = "Price for this countryId, servicePlanId and effectiveFrom date")
 	double price;
 
 	@ApiModelProperty(notes = "To indicate if this price is currently in effect or not. It is set to false when a new effective price is rolled out")

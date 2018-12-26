@@ -122,9 +122,9 @@ public class PriceController {
 	 * @return
 	 */
 	@GetMapping(value = "")
-	@ApiOperation(value = "Get prices for all the plans across all countries by active status(optional)")
+	@ApiOperation(value = "Get prices for all the plans across all countries by optional active status(true/false)")
 	public ResponseEntity<List<PriceByPlanCountry>> getPrice(
-			@RequestParam(value = "true/false", required = false) String active) {
+			@RequestParam(value = "active", required = false) String active) {
 		List<PriceByPlanCountry> priceList = null;
 
 		// if query parameter 'active' is specified
