@@ -74,7 +74,7 @@ public class PriceController {
 	 * @return
 	 */
 	@GetMapping(value = "/countries/{countryId}/plans/{planId}")
-	@ApiOperation(value = "Get all prices by countryId, planId and active(optional)")
+	@ApiOperation(value = "Get all prices by countryId, planId and optional active status(true/false)")
 	public ResponseEntity<List<PriceByPlanCountry>> getPriceByCountryAndPlan(@PathVariable("countryId") int countryId,
 			@PathVariable("planId") int planId, @RequestParam(required = false, name = "active") String active) {
 		List<PriceByPlanCountry> priceList = null;
@@ -98,7 +98,7 @@ public class PriceController {
 	 * @return
 	 */
 	@GetMapping(value = "/countries/{countryId}")
-	@ApiOperation(value = "Get prices for all the plans by countryId and active status(optional)")
+	@ApiOperation(value = "Get prices for all the plans by countryId and optional active status(true/false)")
 	public ResponseEntity<List<PriceByPlanCountry>> getPriceByCountry(@PathVariable("countryId") int countryId,
 			@RequestParam(required = false, name = "active") String active) {
 		List<PriceByPlanCountry> priceList = null;
