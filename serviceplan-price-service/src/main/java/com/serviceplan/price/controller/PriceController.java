@@ -32,7 +32,7 @@ import io.swagger.annotations.ApiResponses;
 
 @RestController
 @RequestMapping(value = { "/v1/price" })
-@Api(value = "service plan price operations", description = "Operations pertaining Netflix Service Plan Prices")
+@Api(value = "service plan price operations for 1=1S, 2=2S, 3=4S", description = "Operations pertaining to Netflix Service Plan Prices")
 public class PriceController {
 	private static final String DELETE_OPERATION_NOT_ALLOWD_MSG = "Delete operation not allowed on past price with ID = %s";
 	private static final String UPDATE_OPERATION_NOT_ALLOWD_MSG = "Update operation not allowed on past price with ID = %s";
@@ -75,7 +75,7 @@ public class PriceController {
 	@GetMapping(value = "/countries/{countryId}/plans/{planId}")
 	@ApiOperation(value = "Get all prices by countryId, planId and active(optional)")
 	public ResponseEntity<List<PriceByPlanCountry>> getPriceByCountryAndPlan(@PathVariable("countryId") int countryId,
-			@PathVariable("planId") int planId, @RequestParam(value = "active", required = false) String active) {
+			@PathVariable("planId") int planId, @RequestParam(value = "true/false", required = false) String active) {
 		List<PriceByPlanCountry> priceList = null;
 
 		// if query parameter 'active' is specified, filter by active field
@@ -99,7 +99,7 @@ public class PriceController {
 	@GetMapping(value = "/countries/{countryId}")
 	@ApiOperation(value = "Get prices for all the plans by countryId and active status(optional)")
 	public ResponseEntity<List<PriceByPlanCountry>> getPriceByCountry(@PathVariable("countryId") int countryId,
-			@RequestParam(value = "active", required = false) String active) {
+			@RequestParam(value = "true/false", required = false) String active) {
 		List<PriceByPlanCountry> priceList = null;
 
 		// if query parameter 'active' is specified
@@ -122,8 +122,8 @@ public class PriceController {
 	 */
 	@GetMapping(value = "")
 	@ApiOperation(value = "Get prices for all the plans across all countries by active status(optional)")
-	public ResponseEntity<List<PriceByPlanCountry>> getPriceByCountry(
-			@RequestParam(value = "active", required = false) String active) {
+	public ResponseEntity<List<PriceByPlanCountry>> getPrice(
+			@RequestParam(value = "true/false", required = false) String active) {
 		List<PriceByPlanCountry> priceList = null;
 
 		// if query parameter 'active' is specified
@@ -172,12 +172,21 @@ public class PriceController {
 				continue;
 			}
 
+			// insert not allowed for servicePlanId outside 1-3
+			int planId = price.getServicePlanId();
+			if (planId < 1 || planId > 3) {
+				PriceStatus priceStatus = getPriceStatus(String.format(ACTIVE_SHOULD_BE_TRUE_MSG), price);
+				errorMessageList.add(priceStatus);
+				continue;
+			}
+
 			// check if we already have price for given country, plan and effective date
 			PriceByPlanCountry resultPrice = priceService.getPriceByPlanCountryEffectiveDate(price.getCountryId(),
 					price.getServicePlanId(), price.getEffectiveFrom());
 
 			// Only insert if not present already
 			if (resultPrice == null) {
+				price.setPriceId(-1); // to automatically generate ID
 				PriceByPlanCountry insertedPrice = priceService.InsertPrice(price);
 				numInsertedPrice++;
 				links.append(request.getRequestURL().append("/").append(insertedPrice.getPriceId()).toString())
@@ -209,7 +218,7 @@ public class PriceController {
 	 * @param response
 	 */
 	@PutMapping(value = "")
-	@ApiOperation(value = "Create or update price information using provided data")
+	@ApiOperation(value = "Bulk update price information using provided data (Only price field is updated. All fields are mandatory")
 	public ResponseEntity<List<PriceStatus>> bulkUpdate(@RequestBody List<PriceByPlanCountry> priceList,
 			HttpServletRequest request, HttpServletResponse response) {
 		// urls to access inserted prices
@@ -253,8 +262,8 @@ public class PriceController {
 				links.append(request.getRequestURL().append("/").append(insertedPrice.getPriceId()).toString())
 						.append(",");
 			} else {
-				PriceStatus priceStatus = getPriceStatus(
-						String.format(NO_PRICE_INFO_FOUND_MSG, resultPrice.getPriceId()), price);
+				PriceStatus priceStatus = getPriceStatus(String.format(NO_PRICE_INFO_FOUND_MSG, price.getPriceId()),
+						price);
 				errorMessageList.add(priceStatus);
 			}
 		}
