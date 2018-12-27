@@ -1,5 +1,5 @@
-servicePlanId,countryId,price,active,effectiveFrom
-1,1,10.99,false,2014-02-12
-1,1,11.99,true,2017-02-12
-2,1,12.99,true,2017-02-12
-3,1,14.99,true,2017-02-12
+servicePlanId,countryId,price,active,effectiveFrom,lastUpdated
+1,1,10.99,false,2014-02-12,2014-02-12
+1,1,11.99,true,2017-02-12,2017-02-12
+2,1,12.99,true,2017-02-12,2017-02-12
+3,1,14.99,true,2017-02-12,2017-02-12
