@@ -37,4 +37,6 @@ public interface PriceRepository extends CrudRepository<PriceByPlanCountry, Long
 	@Query(value = "select * from PRICE_BY_PLAN_COUNTRY p where p.COUNTRY_ID = ?1 and p.SERVICE_PLAN_ID = ?2 and p.EFFECTIVE_FROM < ?3 and p.IS_ACTIVE=true", nativeQuery = true)
 	PriceByPlanCountry findCurrentEffectivePriceByPlanCountry(int countryId, int servicePlanId, String effectiveFrom);
 
+	@Query(value = "select * from PRICE_BY_PLAN_COUNTRY where COUNTRY_ID = ?1 and SERVICE_PLAN_ID = ?2 order by EFFECTIVE_FROM desc limit 1", nativeQuery = true)
+	PriceByPlanCountry findLastEffectivePriceByPlanCountry(int countryId, int servicePlanId);
 }

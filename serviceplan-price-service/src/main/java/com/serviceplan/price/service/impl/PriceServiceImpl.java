@@ -14,6 +14,12 @@ import com.serviceplan.price.dataloader.Constants;
 import com.serviceplan.price.entity.PriceByPlanCountry;
 import com.serviceplan.price.repository.PriceRepository;
 
+/**
+ * Service class (wrapper around repository class) for Controller
+ * 
+ * @author deepi
+ *
+ */
 @Service
 public class PriceServiceImpl implements com.serviceplan.price.service.PriceService {
 	Logger logger = LoggerFactory.getLogger(PriceServiceImpl.class);
@@ -104,7 +110,25 @@ public class PriceServiceImpl implements com.serviceplan.price.service.PriceServ
 
 	@Override
 	public void deletePrice(long priceId) {
+		PriceByPlanCountry deletePrice = priceRepository.findByPriceId(priceId);
+
+		// delete requested price
 		priceRepository.deleteById(priceId);
+
+		// if delete request is for the price that was rolled out today, also
+		// re-activate last effective price
+		SimpleDateFormat sdf = Constants.SIMPLE_DATE_FORMAT_YYYY_MM_DD;
+		if (sdf.format(deletePrice.getEffectiveFrom()).equals(sdf.format(new Date()))) {
+			System.out.println("Found last effective price for delete operation..");
+			PriceByPlanCountry lastEffectivePrice = getLastEffectivePriceByPlanCountry(deletePrice.getCountryId(),
+					deletePrice.getServicePlanId());
+			lastEffectivePrice.setActive(true); // activate it
+			priceRepository.save(lastEffectivePrice);
+		}
+	}
+
+	private PriceByPlanCountry getLastEffectivePriceByPlanCountry(int countryId, int servicePlanId) {
+		return priceRepository.findLastEffectivePriceByPlanCountry(countryId, servicePlanId);
 	}
 
 }

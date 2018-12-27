@@ -2,6 +2,14 @@ package com.serviceplan.price.error;
 
 import org.springframework.http.HttpStatus;
 
+/**
+ * Used to wrap status code, message and other information for reporting back to
+ * client
+ * 
+ * @author deepi
+ *
+ * @param <T>
+ */
 public class ErrorResponseEntity<T> {
 	private String message;
 	private HttpStatus status;

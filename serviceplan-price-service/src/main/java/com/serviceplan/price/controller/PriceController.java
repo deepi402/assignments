@@ -34,11 +34,18 @@ import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
 
+/**
+ * Main class for receiving http requests from client for performing insert,
+ * update, delete and retrieve operation on price
+ * 
+ * @author deepi
+ *
+ */
 @RestController
 @RequestMapping(value = { "/v1/price" })
 @Api(value = "service plan price operations for 1=1S, 2=2S, 3=4S", description = "Operations pertaining to Netflix Service Plan Prices")
 public class PriceController {
-	private static final String OPERATION_NOT_ALLOWD_FOR_PAST_MSG = "Insert/Update/Delete operation not allowed for past (with effectiveFrom < today)";
+	private static final String OPERATION_NOT_ALLOWD_FOR_PAST_MSG = "Insert/Update/Delete operation not allowed for past price (with effectiveFrom < today)";
 	private static final String NO_PRICE_INFO_FOUND_MSG = "No price information was found with Id = %s";
 	private static final String PRICE_ALREADY_EXISTS_MSG = "Price already exists for same country, plan and effective date (ID = %s). Use PUT for price update.";
 	private static final String ACTIVE_SHOULD_BE_TRUE_MSG = "Active field should be true";
@@ -151,7 +158,7 @@ public class PriceController {
 	 * @param response
 	 */
 	@PostMapping(value = "")
-	@ApiOperation(value = "Bulk insert for price information using provided data (priceId field will be ignored. No insert allowed for past date. Use PUT for updating existing price.")
+	@ApiOperation(value = "Bulk insert for price information using provided data (priceId field value will be ignored. No insert allowed for past date. Use PUT for updating existing price.")
 	@ApiResponses({ @ApiResponse(code = 207, message = "Multi-status", response = ErrorResponseEntity.class), })
 	public ResponseEntity<List<ErrorResponseEntity<PriceByPlanCountry>>> bulkInsert(
 			@RequestBody List<PriceByPlanCountry> priceList, HttpServletRequest request, HttpServletResponse response) {
