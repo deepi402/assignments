@@ -88,6 +88,7 @@ public class PriceServiceImpl implements com.serviceplan.price.service.PriceServ
 					price.getCountryId(), price.getServicePlanId(), sdf.format(today));
 			if (currentEffectivePrice != null) {
 				currentEffectivePrice.setActive(false);
+				currentEffectivePrice.setLastUpdated(new Date());
 				priceRepository.save(currentEffectivePrice); // inactivate previous effective price
 			}
 		}

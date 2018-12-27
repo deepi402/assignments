@@ -1,5 +1,6 @@
 package com.serviceplan.price.controller;
 
+import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -22,7 +23,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.serviceplan.price.dataloader.Constants;
 import com.serviceplan.price.entity.PriceByPlanCountry;
+import com.serviceplan.price.error.ErrorResponseEntity;
 import com.serviceplan.price.service.PriceService;
 
 import io.swagger.annotations.Api;
@@ -34,14 +37,13 @@ import io.swagger.annotations.ApiResponses;
 @RequestMapping(value = { "/v1/price" })
 @Api(value = "service plan price operations for 1=1S, 2=2S, 3=4S", description = "Operations pertaining to Netflix Service Plan Prices")
 public class PriceController {
-	private static final String DELETE_OPERATION_NOT_ALLOWD_MSG = "Delete operation not allowed on past price with ID = %s";
-	private static final String UPDATE_OPERATION_NOT_ALLOWD_MSG = "Update operation not allowed on past price with ID = %s";
+	private static final String OPERATION_NOT_ALLOWD_FOR_PAST_MSG = "Insert/Update/Delete operation not allowed for past (with effectiveFrom < today)";
 	private static final String NO_PRICE_INFO_FOUND_MSG = "No price information was found with Id = %s";
 	private static final String PRICE_ALREADY_EXISTS_MSG = "Price already exists for same country, plan and effective date (ID = %s). Use PUT for price update.";
 	private static final String ACTIVE_SHOULD_BE_TRUE_MSG = "Active field should be true";
-	private static final String EFFECTIVE_FROM_IS_IN_PAST_MSG = "effectiveFrom field can't be in past";
-	private static final String PRICE_ID_DOES_MATCH_COUNTRY_SERVICE_PLAN_AND_EFFECTIVE_FROM_MSG = "Specified priceId doesn't correspond to specified CountryId, servicePlanId, effectiveDate";
+	private static final String PRICE_ID_DOES_NOT_MATCH_COUNTRY_SERVICE_PLAN_AND_EFFECTIVE_FROM_MSG = "Specified priceId doesn't correspond to specified CountryId, servicePlanId, effectiveDate";
 	private static final String INVALID_SERVICE_PLAN_ID_MSG = "servicePlanId is not in allowed range (1-3)";
+	private static final String INVALID_DATE_FORMAT_MSG = "effectiveFrom should be \"yyyy-M-dd\" format";
 
 	Logger logger = LoggerFactory.getLogger(PriceController.class);
 
@@ -148,37 +150,21 @@ public class PriceController {
 	 * @param response
 	 */
 	@PostMapping(value = "")
-	@ApiOperation(value = "Bulk insert for price information using provided data (priceId field will be ignored. No insert allowed for past date. active should be 'true' for today and future date. Use PUT for updating existing price.")
-	@ApiResponses({ @ApiResponse(code = 207, message = "Multi-status", response = PriceStatus.class), })
-	public ResponseEntity<List<PriceStatus>> bulkInsert(@RequestBody List<PriceByPlanCountry> priceList,
-			HttpServletRequest request, HttpServletResponse response) {
+	@ApiOperation(value = "Bulk insert for price information using provided data (priceId field will be ignored. No insert allowed for past date. Use PUT for updating existing price.")
+	@ApiResponses({ @ApiResponse(code = 207, message = "Multi-status", response = ErrorResponseEntity.class), })
+	public ResponseEntity<List<ErrorResponseEntity<PriceByPlanCountry>>> bulkInsert(
+			@RequestBody List<PriceByPlanCountry> priceList, HttpServletRequest request, HttpServletResponse response) {
 
-		// urls to access inserted prices
+		// urls for successfully inserted prices
 		StringBuffer links = new StringBuffer();
 		int numInsertedPrice = 0;
-		List<PriceStatus> errorStatusList = new ArrayList<>();
+		List<ErrorResponseEntity<PriceByPlanCountry>> errorResponseList = new ArrayList<>();
 
 		for (PriceByPlanCountry price : priceList) {
-			String errorMsg = null;
-			// Insert not allowed for past date or with active=false status
-			if (price.getEffectiveFrom().before(new Date())) {
-				errorMsg = String.format(EFFECTIVE_FROM_IS_IN_PAST_MSG);
-			}
-
-			// insert not allowed for active=false status
-			if (!price.getActive()) {
-				errorMsg = String.format(ACTIVE_SHOULD_BE_TRUE_MSG);
-			}
-
-			// insert not allowed for servicePlanId outside 1-3
-			int planId = price.getServicePlanId();
-			if (planId < 1 || planId > 3) {
-				errorMsg = String.format(INVALID_SERVICE_PLAN_ID_MSG);
-			}
-
-			if (errorMsg != null) {
-				PriceStatus priceStatus = getPriceStatus(errorMsg, price);
-				errorStatusList.add(priceStatus);
+			// validate effectiveDate, active and servicePlainId field
+			ErrorResponseEntity<PriceByPlanCountry> errorResponseEntity = validateInput(price);
+			if (errorResponseEntity != null) {
+				errorResponseList.add(errorResponseEntity);
 				continue;
 			}
 
@@ -186,18 +172,20 @@ public class PriceController {
 			PriceByPlanCountry resultPrice = priceService.getPriceByPlanCountryEffectiveDate(price.getCountryId(),
 					price.getServicePlanId(), price.getEffectiveFrom());
 
-			// Only insert if not present already
-			if (resultPrice == null) {
-				price.setPriceId(-1); // to automatically generate ID
-				PriceByPlanCountry insertedPrice = priceService.InsertPrice(price);
-				numInsertedPrice++;
-				links.append(request.getRequestURL().append("/").append(insertedPrice.getPriceId()).toString())
-						.append(",");
-			} else {
-				PriceStatus priceStatus = getPriceStatus(
-						String.format(PRICE_ALREADY_EXISTS_MSG, resultPrice.getPriceId()), price);
-				errorStatusList.add(priceStatus);
+			// If already present report error
+			if (resultPrice != null) {
+				errorResponseEntity = new ErrorResponseEntity<>(
+						String.format(PRICE_ALREADY_EXISTS_MSG, resultPrice.getPriceId()), HttpStatus.BAD_REQUEST,
+						price);
+				errorResponseList.add(errorResponseEntity);
+				continue;
 			}
+
+			price.setPriceId(-1); // to automatically generate ID
+			PriceByPlanCountry insertedPrice = priceService.InsertPrice(price);
+			numInsertedPrice++;
+			links.append(request.getRequestURL().append("/").append(insertedPrice.getPriceId()).toString()).append(",");
+
 		}
 
 		if (numInsertedPrice > 0) {
@@ -205,10 +193,11 @@ public class PriceController {
 			response.setHeader("Location", links.toString());
 		}
 
-		if (errorStatusList.size() > 0)
-			return new ResponseEntity<List<PriceStatus>>(errorStatusList, HttpStatus.MULTI_STATUS);
+		if (errorResponseList.size() > 0)
+			return new ResponseEntity<List<ErrorResponseEntity<PriceByPlanCountry>>>(errorResponseList,
+					HttpStatus.MULTI_STATUS);
 
-		return new ResponseEntity<List<PriceStatus>>(HttpStatus.OK);
+		return new ResponseEntity<List<ErrorResponseEntity<PriceByPlanCountry>>>(HttpStatus.OK);
 
 	}
 
@@ -220,26 +209,20 @@ public class PriceController {
 	 * @param response
 	 */
 	@PutMapping(value = "")
-	@ApiOperation(value = "Bulk update price information using provided data (Only price field is updated. All fields are mandatory")
-	public ResponseEntity<List<PriceStatus>> bulkUpdate(@RequestBody List<PriceByPlanCountry> priceList,
-			HttpServletRequest request, HttpServletResponse response) {
-		// urls to access inserted prices
+	@ApiOperation(value = "Bulk update price information using provided data (Only price field is updated. No update allowed for past date.")
+	public ResponseEntity<List<ErrorResponseEntity<PriceByPlanCountry>>> bulkUpdate(
+			@RequestBody List<PriceByPlanCountry> priceList, HttpServletRequest request, HttpServletResponse response) {
+
+		// urls for successfully updated prices
 		StringBuffer links = new StringBuffer();
 		int numUpdatedPrice = 0;
-		List<PriceStatus> errorMessageList = new ArrayList<>();
+		List<ErrorResponseEntity<PriceByPlanCountry>> errorResponseList = new ArrayList<>();
 
 		for (PriceByPlanCountry price : priceList) {
-			// Update not allowed for past date or with active=false status
-			if (price.getEffectiveFrom().before(new Date())) {
-				PriceStatus priceStatus = getPriceStatus(String.format(EFFECTIVE_FROM_IS_IN_PAST_MSG), price);
-				errorMessageList.add(priceStatus);
-				continue;
-			}
-
-			// Update not allowed for active=false status
-			if (!price.getActive()) {
-				PriceStatus priceStatus = getPriceStatus(String.format(ACTIVE_SHOULD_BE_TRUE_MSG), price);
-				errorMessageList.add(priceStatus);
+			// validate effectiveDate, active and servicePlainId field
+			ErrorResponseEntity<PriceByPlanCountry> errorResponseEntity = validateInput(price);
+			if (errorResponseEntity != null) {
+				errorResponseList.add(errorResponseEntity);
 				continue;
 			}
 
@@ -247,27 +230,28 @@ public class PriceController {
 			PriceByPlanCountry resultPrice = priceService.getPriceByPlanCountryEffectiveDate(price.getCountryId(),
 					price.getServicePlanId(), price.getEffectiveFrom());
 
-			// Only Update if present already
-			if (resultPrice != null) {
-				// ensure priceId of retrieved price is same as the one specified in input
-				if (resultPrice.getPriceId() != price.getPriceId()) {
-					PriceStatus priceStatus = getPriceStatus(
-							String.format(PRICE_ID_DOES_MATCH_COUNTRY_SERVICE_PLAN_AND_EFFECTIVE_FROM_MSG,
-									resultPrice.getPriceId()),
-							price);
-					errorMessageList.add(priceStatus);
-					continue;
-				}
-
-				PriceByPlanCountry insertedPrice = priceService.UpdatePrice(price);
-				numUpdatedPrice++;
-				links.append(request.getRequestURL().append("/").append(insertedPrice.getPriceId()).toString())
-						.append(",");
-			} else {
-				PriceStatus priceStatus = getPriceStatus(String.format(NO_PRICE_INFO_FOUND_MSG, price.getPriceId()),
-						price);
-				errorMessageList.add(priceStatus);
+			// report error if not present already
+			if (resultPrice == null) {
+				errorResponseEntity = new ErrorResponseEntity<>(
+						String.format(NO_PRICE_INFO_FOUND_MSG, price.getPriceId()), HttpStatus.BAD_REQUEST, price);
+				errorResponseList.add(errorResponseEntity);
+				continue;
 			}
+
+			// ensure priceId of retrieved price is same as the one specified in input
+			if (resultPrice.getPriceId() != price.getPriceId()) {
+				errorResponseEntity = new ErrorResponseEntity<>(
+						String.format(PRICE_ID_DOES_NOT_MATCH_COUNTRY_SERVICE_PLAN_AND_EFFECTIVE_FROM_MSG,
+								resultPrice.getPriceId()),
+						HttpStatus.BAD_REQUEST, price);
+				errorResponseList.add(errorResponseEntity);
+				continue;
+			}
+
+			// Now proceed with update in backend
+			PriceByPlanCountry updatedPrice = priceService.UpdatePrice(price);
+			numUpdatedPrice++;
+			links.append(request.getRequestURL().append("/").append(updatedPrice.getPriceId()).toString()).append(",");
 		}
 
 		if (numUpdatedPrice > 0) {
@@ -275,10 +259,11 @@ public class PriceController {
 			response.setHeader("Location", links.toString());
 		}
 
-		if (errorMessageList.size() > 0)
-			return new ResponseEntity<List<PriceStatus>>(errorMessageList, HttpStatus.MULTI_STATUS);
+		if (errorResponseList.size() > 0)
+			return new ResponseEntity<List<ErrorResponseEntity<PriceByPlanCountry>>>(errorResponseList,
+					HttpStatus.MULTI_STATUS);
 
-		return new ResponseEntity<List<PriceStatus>>(HttpStatus.OK);
+		return new ResponseEntity<List<ErrorResponseEntity<PriceByPlanCountry>>>(HttpStatus.OK);
 	}
 
 	/**
@@ -292,13 +277,13 @@ public class PriceController {
 	 * @return
 	 */
 	@PutMapping(value = "/{priceId}")
-	@ApiOperation(value = "Update price information for given priceId using provided data (only price field is used and updated)")
-	public ResponseEntity<String> updatePriceByPriceId(@PathVariable("priceId") long priceId,
+	@ApiOperation(value = "Update price information for given priceId using provided data (only price field is used and updated, all other fields are ignored. No update allowed for past date.)")
+	public ResponseEntity<?> updatePriceByPriceId(@PathVariable("priceId") long priceId,
 			@RequestBody PriceByPlanCountry newPriceInfo, HttpServletRequest request, HttpServletResponse response) {
 
-		ResponseEntity<String> responseEntity = validateInput(priceId, UPDATE_OPERATION_NOT_ALLOWD_MSG);
-		if (responseEntity.getStatusCode() != HttpStatus.OK)
-			return responseEntity;
+		ErrorResponseEntity<Long> errorResponseEntity = validateInputPriceExistAndNotInPast(priceId);
+		if (errorResponseEntity != null)
+			return new ResponseEntity<String>(errorResponseEntity.getMessage(), errorResponseEntity.getStatus());
 
 		// update price
 		PriceByPlanCountry priceInfo = priceService.getPriceById(priceId);
@@ -320,67 +305,89 @@ public class PriceController {
 	 * @param priceId
 	 */
 	@DeleteMapping(value = "/{priceId}")
-	@ApiOperation(value = "Delete price information for given priceId")
+	@ApiOperation(value = "Delete price information for given priceId. No delete allowed for past date.")
 	public ResponseEntity<String> deletePrice(@PathVariable("priceId") long priceId) {
 
-		ResponseEntity<String> responseEntity = validateInput(priceId, DELETE_OPERATION_NOT_ALLOWD_MSG);
-		if (responseEntity.getStatusCode() != HttpStatus.OK)
-			return responseEntity;
+		ErrorResponseEntity<Long> errorResponseEntity = validateInputPriceExistAndNotInPast(priceId);
+		if (errorResponseEntity != null)
+			return new ResponseEntity<String>(errorResponseEntity.getMessage(), errorResponseEntity.getStatus());
 
 		priceService.deletePrice(priceId);
 		return new ResponseEntity<String>("Price information was deleted successfully for " + priceId, HttpStatus.OK);
 	}
 
-	private ResponseEntity<String> validateInput(long priceId, String msg) {
+	/**
+	 * used to ensure that price information exists for given priceId and
+	 * effectiveDate is not in past
+	 * 
+	 * @param priceId
+	 * @return
+	 * @throws ParseException
+	 */
+	private ErrorResponseEntity<Long> validateInputPriceExistAndNotInPast(long priceId) {
 		// if price doesn't exist for given priceId
 		PriceByPlanCountry priceInfo = priceService.getPriceById(priceId);
 		if (priceInfo == null)
-			return new ResponseEntity<String>(String.format(NO_PRICE_INFO_FOUND_MSG, priceId), HttpStatus.NOT_FOUND);
+			return new ErrorResponseEntity<Long>(String.format(String.format(NO_PRICE_INFO_FOUND_MSG, priceId)),
+					HttpStatus.NOT_FOUND, priceId);
 
-		// if incoming price is for past date
-		if (priceInfo.getEffectiveFrom().before(new Date()))
-			return new ResponseEntity<String>(String.format(msg, priceId), HttpStatus.BAD_REQUEST);
+		// if given priceId is for past date
+		Date priceDate;
+		try {
+			// compare only yyyy-M-dd
+			priceDate = Constants.SIMPLE_DATE_FORMAT_YYYY_M_DD
+					.parse(Constants.SIMPLE_DATE_FORMAT_YYYY_M_DD.format(priceInfo.getEffectiveFrom()));
+			Date today = Constants.SIMPLE_DATE_FORMAT_YYYY_M_DD
+					.parse(Constants.SIMPLE_DATE_FORMAT_YYYY_M_DD.format(new Date()));
+			if (priceDate.before(today))
+				return new ErrorResponseEntity<Long>(String.format(String.format(OPERATION_NOT_ALLOWD_FOR_PAST_MSG)),
+						HttpStatus.BAD_REQUEST, priceId);
+		} catch (ParseException e) {
+			return new ErrorResponseEntity<Long>(String.format(String.format(INVALID_DATE_FORMAT_MSG)),
+					HttpStatus.BAD_REQUEST, priceId);
+		}
 
-		return new ResponseEntity<String>(HttpStatus.OK);
+		return null;
 	}
 
-	private PriceStatus getPriceStatus(String msg, PriceByPlanCountry input) {
-		PriceStatus priceStatus = new PriceStatus();
-		priceStatus.setInput(input);
-		priceStatus.setStatus(HttpStatus.BAD_REQUEST);
-		priceStatus.setMessage(msg);
-		return priceStatus;
-	}
-
-	class PriceStatus {
-		public String getMessage() {
-			return message;
+	/**
+	 * Method to validate input price information
+	 * 
+	 * @param inputPrice
+	 * @param errorResponse
+	 * @return
+	 * @throws ParseException
+	 */
+	private ErrorResponseEntity<PriceByPlanCountry> validateInput(PriceByPlanCountry inputPrice) {
+		// Insert not allowed for past date or with active=false status
+		try {
+			// compare only yyyy-M-dd
+			Date priceDate = Constants.SIMPLE_DATE_FORMAT_YYYY_M_DD
+					.parse(Constants.SIMPLE_DATE_FORMAT_YYYY_M_DD.format(inputPrice.getEffectiveFrom()));
+			Date today = Constants.SIMPLE_DATE_FORMAT_YYYY_M_DD
+					.parse(Constants.SIMPLE_DATE_FORMAT_YYYY_M_DD.format(new Date()));
+			if (priceDate.before(today)) {
+				return new ErrorResponseEntity<PriceByPlanCountry>(String.format(OPERATION_NOT_ALLOWD_FOR_PAST_MSG),
+						HttpStatus.BAD_REQUEST, inputPrice);
+			}
+		} catch (ParseException e) {
+			return new ErrorResponseEntity<PriceByPlanCountry>(String.format(String.format(INVALID_DATE_FORMAT_MSG)),
+					HttpStatus.BAD_REQUEST, inputPrice);
 		}
 
-		public void setMessage(String message) {
-			this.message = message;
+		// insert not allowed for active=false status
+		if (!inputPrice.getActive()) {
+			return new ErrorResponseEntity<PriceByPlanCountry>(String.format(ACTIVE_SHOULD_BE_TRUE_MSG),
+					HttpStatus.BAD_REQUEST, inputPrice);
 		}
 
-		public HttpStatus getStatus() {
-			return status;
+		// insert not allowed for servicePlanId outside 1-3
+		int planId = inputPrice.getServicePlanId();
+		if (planId < 1 || planId > 3) {
+			return new ErrorResponseEntity<PriceByPlanCountry>(String.format(INVALID_SERVICE_PLAN_ID_MSG),
+					HttpStatus.BAD_REQUEST, inputPrice);
 		}
-
-		public void setStatus(HttpStatus status) {
-			this.status = status;
-		}
-
-		public PriceByPlanCountry getInput() {
-			return input;
-		}
-
-		public void setInput(PriceByPlanCountry input) {
-			this.input = input;
-		}
-
-		String message;
-		HttpStatus status;
-		PriceByPlanCountry input;
-
+		return null;
 	}
 
 }

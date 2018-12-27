@@ -7,6 +7,10 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.Table;
+import javax.validation.constraints.Max;
+import javax.validation.constraints.Min;
+import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Positive;
 
 import io.swagger.annotations.ApiModelProperty;
 
@@ -16,25 +20,27 @@ public class PriceByPlanCountry {
 	@Id
 	@GeneratedValue(strategy = GenerationType.AUTO)
 	@ApiModelProperty(notes = "The database generated price ID")
-	long priceId;
+	private long priceId;
 
 	@ApiModelProperty(notes = "ID of subscribed service plan")
-	int servicePlanId; // planId in ServicePlan table
+	private int servicePlanId; // planId in ServicePlan table
 
 	@ApiModelProperty(notes = "ID of country")
-	int countryId;
+	private int countryId;
 
 	@ApiModelProperty(notes = "Date when this price is effective from")
-	Date effectiveFrom;
+	@NotNull
+	private Date effectiveFrom;
 
 	@ApiModelProperty(notes = "Date when this record was last updated")
-	Date lastUpdated;
+	private Date lastUpdated;
 
 	@ApiModelProperty(notes = "Price for this countryId, servicePlanId and effectiveFrom date")
-	double price;
+	@Positive
+	private double price;
 
 	@ApiModelProperty(notes = "To indicate if this price is currently in effect or not. It is set to false when a new effective price is rolled out")
-	boolean isActive; // set to false when a new effective price is rolled out
+	private boolean isActive; // set to false when a new effective price is rolled out
 
 	public long getPriceId() {
 		return priceId;
