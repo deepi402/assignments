@@ -7,8 +7,6 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.Table;
-import javax.validation.constraints.Max;
-import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Positive;
 
@@ -23,7 +21,7 @@ public class PriceByPlanCountry {
 	private long priceId;
 
 	@ApiModelProperty(notes = "ID of subscribed service plan")
-	private int servicePlanId; // planId in ServicePlan table
+	private int servicePlanId;
 
 	@ApiModelProperty(notes = "ID of country")
 	private int countryId;
@@ -40,7 +38,7 @@ public class PriceByPlanCountry {
 	private double price;
 
 	@ApiModelProperty(notes = "To indicate if this price is currently in effect or not. It is set to false when a new effective price is rolled out")
-	private boolean isActive; // set to false when a new effective price is rolled out
+	private boolean isActive;
 
 	public long getPriceId() {
 		return priceId;
