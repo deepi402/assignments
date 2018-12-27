@@ -234,10 +234,8 @@ public class PriceController {
 				continue;
 			}
 
-			// check if we already have price for given country, plan and effective date
-			PriceByPlanCountry resultPrice = priceService.getPriceByPlanCountryEffectiveDate(price.getCountryId(),
-					price.getServicePlanId(), price.getEffectiveFrom());
-
+			// check if we already have price for priceId
+			PriceByPlanCountry resultPrice = priceService.getPriceById(price.getPriceId());
 			// report error if not present already
 			if (resultPrice == null) {
 				errorResponseEntity = new ErrorResponseEntity<>(
@@ -246,8 +244,12 @@ public class PriceController {
 				continue;
 			}
 
-			// ensure priceId of retrieved price is same as the one specified in input
-			if (resultPrice.getPriceId() != price.getPriceId()) {
+			// ensure countryId, servicePlanId and effectiveFrom fields of retrieved price
+			// are same as the one specified in input
+			SimpleDateFormat sdf = Constants.SIMPLE_DATE_FORMAT_YYYY_MM_DD;
+			if (resultPrice.getCountryId() != price.getCountryId()
+					|| resultPrice.getServicePlanId() != price.getServicePlanId()
+					|| !sdf.format(resultPrice.getEffectiveFrom()).equals(sdf.format(price.getEffectiveFrom()))) {
 				errorResponseEntity = new ErrorResponseEntity<>(
 						String.format(PRICE_ID_DOES_NOT_MATCH_COUNTRY_SERVICE_PLAN_AND_EFFECTIVE_FROM_MSG,
 								resultPrice.getPriceId()),

@@ -119,7 +119,6 @@ public class PriceServiceImpl implements com.serviceplan.price.service.PriceServ
 		// re-activate last effective price
 		SimpleDateFormat sdf = Constants.SIMPLE_DATE_FORMAT_YYYY_MM_DD;
 		if (sdf.format(deletePrice.getEffectiveFrom()).equals(sdf.format(new Date()))) {
-			System.out.println("Found last effective price for delete operation..");
 			PriceByPlanCountry lastEffectivePrice = getLastEffectivePriceByPlanCountry(deletePrice.getCountryId(),
 					deletePrice.getServicePlanId());
 			lastEffectivePrice.setActive(true); // activate it
