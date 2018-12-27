@@ -1,6 +1,7 @@
 package com.serviceplan.price.controller;
 
 import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -43,7 +44,7 @@ public class PriceController {
 	private static final String ACTIVE_SHOULD_BE_TRUE_MSG = "Active field should be true";
 	private static final String PRICE_ID_DOES_NOT_MATCH_COUNTRY_SERVICE_PLAN_AND_EFFECTIVE_FROM_MSG = "Specified priceId doesn't correspond to specified CountryId, servicePlanId, effectiveDate";
 	private static final String INVALID_SERVICE_PLAN_ID_MSG = "servicePlanId is not in allowed range (1-3)";
-	private static final String INVALID_DATE_FORMAT_MSG = "effectiveFrom should be \"yyyy-M-dd\" format";
+	private static final String INVALID_DATE_FORMAT_MSG = "effectiveFrom should be \"yyyy-MM-dd\" format";
 
 	Logger logger = LoggerFactory.getLogger(PriceController.class);
 
@@ -334,11 +335,10 @@ public class PriceController {
 		// if given priceId is for past date
 		Date priceDate;
 		try {
-			// compare only yyyy-M-dd
-			priceDate = Constants.SIMPLE_DATE_FORMAT_YYYY_M_DD
-					.parse(Constants.SIMPLE_DATE_FORMAT_YYYY_M_DD.format(priceInfo.getEffectiveFrom()));
-			Date today = Constants.SIMPLE_DATE_FORMAT_YYYY_M_DD
-					.parse(Constants.SIMPLE_DATE_FORMAT_YYYY_M_DD.format(new Date()));
+			// compare only yyyy-MM-dd
+			SimpleDateFormat sdf = Constants.SIMPLE_DATE_FORMAT_YYYY_MM_DD;
+			priceDate = sdf.parse(sdf.format(priceInfo.getEffectiveFrom()));
+			Date today = sdf.parse(sdf.format(new Date()));
 			if (priceDate.before(today))
 				return new ErrorResponseEntity<Long>(String.format(String.format(OPERATION_NOT_ALLOWD_FOR_PAST_MSG)),
 						HttpStatus.BAD_REQUEST, priceId);
@@ -361,11 +361,10 @@ public class PriceController {
 	private ErrorResponseEntity<PriceByPlanCountry> validateInput(PriceByPlanCountry inputPrice) {
 		// Insert not allowed for past date or with active=false status
 		try {
-			// compare only yyyy-M-dd
-			Date priceDate = Constants.SIMPLE_DATE_FORMAT_YYYY_M_DD
-					.parse(Constants.SIMPLE_DATE_FORMAT_YYYY_M_DD.format(inputPrice.getEffectiveFrom()));
-			Date today = Constants.SIMPLE_DATE_FORMAT_YYYY_M_DD
-					.parse(Constants.SIMPLE_DATE_FORMAT_YYYY_M_DD.format(new Date()));
+			// compare only yyyy-MM-dd
+			SimpleDateFormat sdf = Constants.SIMPLE_DATE_FORMAT_YYYY_MM_DD;
+			Date priceDate = sdf.parse(sdf.format(inputPrice.getEffectiveFrom()));
+			Date today = sdf.parse(sdf.format(new Date()));
 			if (priceDate.before(today)) {
 				return new ErrorResponseEntity<PriceByPlanCountry>(String.format(OPERATION_NOT_ALLOWD_FOR_PAST_MSG),
 						HttpStatus.BAD_REQUEST, inputPrice);

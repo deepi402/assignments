@@ -89,7 +89,7 @@ public class DataLoader {
 			countryNameToIdMap.put(country.getCountryName(), country.getCountryId());
 		});
 
-		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-M-dd");
+		SimpleDateFormat sdf = Constants.SIMPLE_DATE_FORMAT_YYYY_MM_DD;
 		String dateInString = "2012-06-01";
 		Date baseDate = sdf.parse(dateInString);
 

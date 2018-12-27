@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
 
+import com.serviceplan.price.dataloader.Constants;
 import com.serviceplan.price.entity.PriceByPlanCountry;
 import com.serviceplan.price.repository.PriceRepository;
 import com.serviceplan.price.service.PriceService;
@@ -22,7 +23,7 @@ import com.serviceplan.price.service.PriceService;
 @SpringBootTest
 
 public class PriceServiceImplTest {
-	SimpleDateFormat sdf = new SimpleDateFormat("yyyy-M-dd");
+	SimpleDateFormat sdf = Constants.SIMPLE_DATE_FORMAT_YYYY_MM_DD;
 
 	@Autowired
 	PriceService priceService;
@@ -49,9 +50,11 @@ public class PriceServiceImplTest {
 
 		// insert data
 		inputPrice = priceRepository.save(inputPrice);
-		long priceId = inputPrice.getPriceId();
+		// Check to ensure that now there is 1 row in price table
+		Assertions.assertThat(priceRepository.count()).isEqualTo(1);
 
 		// Now test getPriceById() to retrieve by priceId
+		long priceId = inputPrice.getPriceId();
 		PriceByPlanCountry resultPrice = priceService.getPriceById(priceId);
 		Assertions.assertThat(resultPrice).isNotNull();
 
@@ -67,6 +70,8 @@ public class PriceServiceImplTest {
 
 		// insert data
 		inputPrice = priceRepository.save(inputPrice);
+		// Check to ensure that now there is 1 row in price table
+		Assertions.assertThat(priceRepository.count()).isEqualTo(1);
 
 		// Now test getPriceByPlanCountry() to retrieve
 		List<PriceByPlanCountry> resultPrices = priceService.getPriceByPlanCountry(inputPrice.getCountryId(),
@@ -85,6 +90,8 @@ public class PriceServiceImplTest {
 
 		// insert data
 		inputPrice = priceRepository.save(inputPrice);
+		// Check to ensure that now there is 1 row in price table
+		Assertions.assertThat(priceRepository.count()).isEqualTo(1);
 
 		// Now test getPriceByPlanCountryActiveStatus() to retrieve
 		List<PriceByPlanCountry> resultPrices = priceService.getPriceByPlanCountryActiveStatus(
@@ -103,6 +110,8 @@ public class PriceServiceImplTest {
 
 		// insert data
 		inputPrice = priceRepository.save(inputPrice);
+		// Check to ensure that now there is 1 row in price table
+		Assertions.assertThat(priceRepository.count()).isEqualTo(1);
 
 		// Now test getPriceByCountry() to retrieve
 		List<PriceByPlanCountry> resultPrices = priceService.getPriceByCountry(inputPrice.getCountryId());
@@ -120,6 +129,8 @@ public class PriceServiceImplTest {
 
 		// insert data
 		inputPrice = priceRepository.save(inputPrice);
+		// Check to ensure that now there is 1 row in price table
+		Assertions.assertThat(priceRepository.count()).isEqualTo(1);
 
 		// Now test getPriceByCountryActiveStatus() to retrieve
 		List<PriceByPlanCountry> resultPrices = priceService.getPriceByCountryActiveStatus(inputPrice.getCountryId(),
@@ -150,11 +161,13 @@ public class PriceServiceImplTest {
 
 		PriceByPlanCountry resultPrice = priceRepository.findByPriceId(priceId);
 		Assertions.assertThat(resultPrice).isNotNull();
+
+		// check that resultPrice has new price
 		assertEquals(resultPrice, inputPrice);
 	}
 
 	@Test
-	public void previousEffectivePriceIsInactivatedWhenNewPriceIsRolledOutWithTodayAsEffectiveDate()
+	public void previousEffectivePriceIsInactivatedWhenNewPriceIsRolledOutWithTodayAsEffectiveDateOnInsert()
 			throws ParseException {
 		PriceByPlanCountry inputPrice = createPriceByPlanCountryInput();
 
@@ -163,8 +176,8 @@ public class PriceServiceImplTest {
 
 		// insert price with effectiveFrom in past
 		double oldPrice = 12.99;
-		inputPrice.setPriceId(-1); // to autogenerate ID
-		inputPrice.setEffectiveFrom(sdf.parse("2018-3-15"));
+		inputPrice.setPriceId(-1); // to automatically generate ID
+		inputPrice.setEffectiveFrom(sdf.parse("2018-03-15"));
 		inputPrice.setPrice(oldPrice);
 		inputPrice.setActive(true);
 		inputPrice = priceRepository.save(inputPrice);
@@ -173,27 +186,81 @@ public class PriceServiceImplTest {
 		// Check to ensure that now there is 1 row in price table
 		Assertions.assertThat(priceRepository.count()).isEqualTo(1);
 		// ensure that effectiveDate, active and price fields are still same
-		Assertions.assertThat(sdf.format(inputPrice.getEffectiveFrom())).isEqualTo("2018-3-15");
+		Assertions.assertThat(sdf.format(inputPrice.getEffectiveFrom())).isEqualTo("2018-03-15");
 		Assertions.assertThat(inputPrice.getActive()).isTrue();
 		Assertions.assertThat(inputPrice.getPrice()).isEqualTo(oldPrice);
 
 		// Now insert new price with effectiveFrom as today's date
 		double newPrice = 13.99;
-		inputPrice.setPriceId(-1); // to autogenerate ID
+		inputPrice.setPriceId(-1); // to automatically generate ID
 		inputPrice.setEffectiveFrom(new Date());
 		inputPrice.setPrice(newPrice);
 		inputPrice.setActive(true);
-		priceService.UpdatePrice(inputPrice);
+
+		// now call InsertPrice() for new price
+		priceService.InsertPrice(inputPrice);
 
 		// Now check to ensure that there are 2 rows in price table
 		Assertions.assertThat(priceRepository.count()).isEqualTo(2);
 
-		// check the active for old price id changed to false
+		// check that active field for old price id is changed to false
 		PriceByPlanCountry oldPriceInfo = priceRepository.findByPriceId(oldPriceId);
 		Assertions.assertThat(oldPriceInfo).isNotNull();
-		Assertions.assertThat(sdf.format(oldPriceInfo.getEffectiveFrom())).isEqualTo("2018-3-15");
+		Assertions.assertThat(sdf.format(oldPriceInfo.getEffectiveFrom())).isEqualTo("2018-03-15");
 		Assertions.assertThat(oldPriceInfo.getActive()).isFalse();
 		Assertions.assertThat(oldPriceInfo.getPrice()).isEqualTo(oldPrice);
+	}
+
+	@Test
+	public void previousEffectivePriceIsInactivatedWhenNewPriceIsRolledOutWithTodayAsEffectiveDateOnUpdate()
+			throws ParseException {
+		PriceByPlanCountry inputPrice = createPriceByPlanCountryInput();
+
+		// Check to ensure that there is no data in price table
+		Assertions.assertThat(priceRepository.count()).isEqualTo(0);
+
+		// insert price with effectiveFrom in past
+		double oldPrice = 12.99;
+		inputPrice.setPriceId(-1); // to automatically generate ID
+		inputPrice.setEffectiveFrom(sdf.parse("2018-03-15"));
+		inputPrice.setPrice(oldPrice);
+		inputPrice.setActive(true);
+		inputPrice = priceRepository.save(inputPrice);
+		long oldPriceId = inputPrice.getPriceId();
+
+		// Check to ensure that now there is 1 row in price table
+		Assertions.assertThat(priceRepository.count()).isEqualTo(1);
+		// ensure that effectiveDate, active and price fields are still same
+		Assertions.assertThat(sdf.format(inputPrice.getEffectiveFrom())).isEqualTo("2018-03-15");
+		Assertions.assertThat(inputPrice.getActive()).isTrue();
+		Assertions.assertThat(inputPrice.getPrice()).isEqualTo(oldPrice);
+
+		// Now insert new price with effectiveFrom as today's date
+		double newPrice = 13.99;
+		inputPrice.setPriceId(-1); // to automatically generate ID
+		inputPrice.setEffectiveFrom(new Date());
+		inputPrice.setPrice(newPrice);
+		inputPrice.setActive(true);
+		inputPrice = priceRepository.save(inputPrice);
+
+		// now update price and call updatePrice() for today's effectiveFrom
+		inputPrice.setPrice(14.99);
+		priceService.UpdatePrice(inputPrice);
+		long newPriceId = inputPrice.getPriceId();
+
+		// Now check to ensure that there are 2 rows in price table
+		Assertions.assertThat(priceRepository.count()).isEqualTo(2);
+
+		// check the active field for old price id is changed to false
+		PriceByPlanCountry oldPriceInfo = priceRepository.findByPriceId(oldPriceId);
+		Assertions.assertThat(oldPriceInfo).isNotNull();
+		Assertions.assertThat(sdf.format(oldPriceInfo.getEffectiveFrom())).isEqualTo("2018-03-15");
+		Assertions.assertThat(oldPriceInfo.getActive()).isFalse(); // old price is inactivated
+		Assertions.assertThat(oldPriceInfo.getPrice()).isEqualTo(oldPrice);
+
+		// check that the price is updated correctly for new effective price
+		PriceByPlanCountry newPriceInfo = priceRepository.findByPriceId(newPriceId);
+		Assertions.assertThat(newPriceInfo.getPrice()).isEqualTo(14.99);
 	}
 
 	@Test
@@ -205,6 +272,8 @@ public class PriceServiceImplTest {
 
 		// insert data
 		inputPrice = priceRepository.save(inputPrice);
+		// Check to ensure that now there is 1 row in price table
+		Assertions.assertThat(priceRepository.count()).isEqualTo(1);
 
 		// Now test getPriceByPlanCountryEffectiveDate() to retrieve
 		PriceByPlanCountry resultPrice = priceService.getPriceByPlanCountryEffectiveDate(inputPrice.getCountryId(),
@@ -222,7 +291,6 @@ public class PriceServiceImplTest {
 
 		// insert data
 		inputPrice = priceRepository.save(inputPrice);
-
 		// Check to ensure that now there is 1 row in price table
 		Assertions.assertThat(priceRepository.count()).isEqualTo(1);
 
@@ -250,7 +318,7 @@ public class PriceServiceImplTest {
 		Assertions.assertThat(resultPrice.getCountryId()).isEqualTo(inputPrice.getCountryId());
 		Assertions.assertThat(resultPrice.getServicePlanId()).isEqualTo(inputPrice.getServicePlanId());
 		Assertions.assertThat(resultPrice.getActive()).isEqualTo(inputPrice.getActive());
-		// To compare only "yyyy-M-dd"
+		// To compare only "yyyy-MM-dd"
 		Assertions.assertThat(sdf.format(resultPrice.getEffectiveFrom()))
 				.isEqualTo(sdf.format(inputPrice.getEffectiveFrom()));
 		// lastUpdated if populated during insertion as well

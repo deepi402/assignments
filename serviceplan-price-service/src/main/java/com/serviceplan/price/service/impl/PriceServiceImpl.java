@@ -10,13 +10,14 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.serviceplan.price.dataloader.Constants;
 import com.serviceplan.price.entity.PriceByPlanCountry;
 import com.serviceplan.price.repository.PriceRepository;
 
 @Service
 public class PriceServiceImpl implements com.serviceplan.price.service.PriceService {
 	Logger logger = LoggerFactory.getLogger(PriceServiceImpl.class);
-	SimpleDateFormat sdf = new SimpleDateFormat("yyyy-M-dd");
+	SimpleDateFormat sdf = Constants.SIMPLE_DATE_FORMAT_YYYY_MM_DD;
 
 	@Autowired
 	PriceRepository priceRepository;
