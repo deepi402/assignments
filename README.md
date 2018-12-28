@@ -6,5 +6,10 @@ Follow below steps to download, compile and run serviceplan-price-service applic
 4) http://localhost:8080/h2-console -> to connect to and browse in-memory H2 database
 5) http://localhost:8080/v1/price -> to see all preloaded price information in system
 6) http://localhost:8080/swagger-ui.html -> to use price REST APIs
-7) Run com.serviceplan.price.service.impl.PriceServiceImplTest.java for Junit test for various service methods.
-8) sample data files are under serviceplan-price-service/src/main/resources/sampledata
+
+
+JUnit Tests: 
+com.serviceplan.price.service.impl.PriceServiceImplTest.java contains Junit test for various service methods.
+
+Sample data: 
+sample data files are under serviceplan-price-service/src/main/resources/sampledata
