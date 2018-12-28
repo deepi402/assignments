@@ -215,7 +215,7 @@ public class PriceController {
 	/**
 	 * Bulk update price information using provided data
 	 * 
-	 * @param priceList - list of price to be created/updated
+	 * @param priceList - list of price to be updated
 	 * @param request
 	 * @param response
 	 */
@@ -267,6 +267,48 @@ public class PriceController {
 					HttpStatus.MULTI_STATUS);
 
 		return new ResponseEntity<List<ErrorResponseEntity<PriceByPlanCountry>>>(HttpStatus.OK);
+	}
+
+	/**
+	 * Bulk Delete price information
+	 * 
+	 * @param priceList - list of price to be deleted
+	 */
+	@DeleteMapping(value = "")
+	@ApiOperation(value = "Bulk Delete of price information. Only priceId field is used from input. No delete allowed for past date.")
+	public ResponseEntity<List<ErrorResponseEntity<Long>>> bulkDelete(@RequestBody List<PriceByPlanCountry> priceList,
+			HttpServletRequest request, HttpServletResponse response) {
+
+		// urls for successfully deleted prices
+		StringBuffer links = new StringBuffer();
+		int numDeletedPrice = 0;
+		List<ErrorResponseEntity<Long>> errorResponseList = new ArrayList<>();
+
+		for (PriceByPlanCountry inputPrice : priceList) {
+
+			ErrorResponseEntity<Long> errorResponseEntity = validateInputPriceExistAndNotInPast(
+					inputPrice.getPriceId());
+			if (errorResponseEntity != null) {
+				errorResponseList.add(errorResponseEntity);
+				continue;
+			}
+
+			// Now proceed with delete in backend
+			priceService.deletePrice(inputPrice.getPriceId());
+			numDeletedPrice++;
+			links.append(request.getRequestURL().append("/").append(inputPrice.getPriceId()).toString()).append(",");
+		}
+
+		if (numDeletedPrice > 0) {
+			links.deleteCharAt(links.length() - 1); // to remove last comma
+			response.setHeader("Location", links.toString());
+		}
+
+		if (errorResponseList.size() > 0)
+			return new ResponseEntity<List<ErrorResponseEntity<Long>>>(errorResponseList, HttpStatus.MULTI_STATUS);
+
+		return new ResponseEntity<List<ErrorResponseEntity<Long>>>(HttpStatus.OK);
+
 	}
 
 	/**
