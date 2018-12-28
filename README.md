@@ -7,3 +7,4 @@ Follow below steps to download, compile and run serviceplan-price-service applic
 5) http://localhost:8080/v1/price -> to see all preloaded price information in system
 6) http://localhost:8080/swagger-ui.html -> to use price REST APIs
 7) Run com.serviceplan.price.service.impl.PriceServiceImplTest.java for Junit test for various service methods.
+8) sample data files are under serviceplan-price-service/src/main/resources/sampledata
